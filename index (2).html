@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>梦女模拟器</title>
+<style>
+:root{
+  --bg:#fbf7f9;--panel:#ffffff;--ink:#2b2430;--muted:#8a7f8d;--line:#eee3ea;
+  --accent:#d96b93;--accent-soft:#fbe4ed;--me:#d96b93;--me-ink:#fff;--them:#ffffff;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#17131a;--panel:#211b25;--ink:#f1e9f3;--muted:#9d91a3;--line:#33293a;
+  --accent:#e889ab;--accent-soft:#3a2431;--me:#b9577c;--me-ink:#fff;--them:#2a222f;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+body{display:flex;flex-direction:column;max-width:760px;margin:0 auto}
+header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:2}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-size:22px;overflow:hidden;flex:none}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.who{flex:1;min-width:0}
+.who b{display:block;font-size:16px}
+.who small{color:var(--muted)}
+.icon-btn{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:7px 11px;cursor:pointer;font-size:13px}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+main{flex:1;overflow-y:auto;padding:18px 14px 8px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:8px;align-items:flex-end;max-width:100%}
+.row.me{flex-direction:row-reverse}
+.row .avatar{width:32px;height:32px;font-size:16px}
+.bubble{max-width:78%;padding:9px 13px;border-radius:16px;white-space:pre-wrap;word-break:break-word;background:var(--them);border:1px solid var(--line)}
+.row.me .bubble{background:var(--me);color:var(--me-ink);border-color:transparent;border-bottom-right-radius:5px}
+.row.them .bubble{border-bottom-left-radius:5px}
+.bubble .act{color:var(--muted);font-style:italic}
+.row.me .bubble .act{color:#ffe3ee}
+.sys{align-self:center;color:var(--muted);font-size:12px;padding:4px 10px;background:var(--accent-soft);border-radius:999px;text-align:center;max-width:90%}
+.typing span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--muted);animation:b 1s infinite}
+.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.tools{display:flex;gap:6px;justify-content:center;padding:4px 0 2px;flex-wrap:wrap}
+.tools button{font-size:12px;padding:4px 10px}
+footer{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--panel)}
+textarea#input{flex:1;resize:none;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font:inherit;background:var(--bg);color:var(--ink);max-height:140px;outline:none}
+textarea#input:focus{border-color:var(--accent)}
+#send{border:0;background:var(--accent);color:#fff;border-radius:14px;padding:0 18px;font-size:15px;cursor:pointer}
+#send:disabled{opacity:.5;cursor:default}
+dialog{border:0;border-radius:18px;padding:0;width:min(560px,94vw);max-height:90vh;background:var(--panel);color:var(--ink)}
+dialog::backdrop{background:rgba(20,10,20,.45)}
+.dlg{padding:18px 18px 8px;overflow-y:auto;max-height:calc(90vh - 64px)}
+.dlg h2{margin:0 0 4px;font-size:18px}
+.dlg h3{margin:18px 0 6px;font-size:14px;color:var(--accent)}
+.dlg label{display:block;font-size:13px;color:var(--muted);margin:8px 0 3px}
+.dlg input,.dlg textarea,.dlg select{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:14px;background:var(--bg);color:var(--ink)}
+.dlg textarea{min-height:90px;resize:vertical}
+.dlg .hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+.dlg-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line)}
+.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:480px){.grid2{grid-template-columns:1fr}.bubble{max-width:85%}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="avatar" id="hAvatar"></div>
+  <div class="who"><b id="hName"></b><small id="hStatus">在线</small></div>
+  <button class="icon-btn" id="openSettings">设置</button>
+</header>
+
+<main id="chat"></main>
+<div class="tools">
+  <button class="icon-btn" id="regen">↻ 重新回复</button>
+  <button class="icon-btn" id="undo">撤回上一轮</button>
+  <button class="icon-btn" id="clear">清空对话</button>
+</div>
+<footer>
+  <textarea id="input" rows="1" placeholder="说点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
+  <button id="send">发送</button>
+</footer>
+
+<dialog id="settings">
+  <div class="dlg">
+    <h2>设置</h2>
+    <p class="hint">所有内容只保存在你自己的浏览器里（localStorage），不会上传到 GitHub。</p>
+
+    <h3>AI 接口（兼容 OpenAI 格式）</h3>
+    <label>预设</label>
+    <select id="preset">
+      <option value="">— 自定义 —</option>
+      <option value="https://api.deepseek.com/v1|deepseek-chat">DeepSeek</option>
+      <option value="https://api.openai.com/v1|gpt-4o-mini">OpenAI</option>
+      <option value="https://openrouter.ai/api/v1|anthropic/claude-sonnet-4.5">OpenRouter</option>
+      <option value="https://api.moonshot.cn/v1|moonshot-v1-8k">Kimi (Moonshot)</option>
+      <option value="https://dashscope.aliyuncs.com/compatible-mode/v1|qwen-plus">通义千问</option>
+    </select>
+    <label>API 地址（Base URL）</label>
+    <input id="baseUrl" placeholder="https://api.deepseek.com/v1">
+    <label>API Key</label>
+    <input id="apiKey" type="password" placeholder="sk-...">
+    <div class="grid2">
+      <div><label>模型</label><input id="model" placeholder="deepseek-chat"></div>
+      <div><label>温度（0–1.5，越高越放飞）</label><input id="temp" type="number" step="0.1" min="0" max="1.5"></div>
+    </div>
+    <label>记忆长度（发给 AI 的最近消息条数）</label>
+    <input id="memory" type="number" min="4" max="200">
+
+    <h3>角色</h3>
+    <div class="grid2">
+      <div><label>名字</label><input id="charName"></div>
+      <div><label>头像（emoji 或图片链接）</label><input id="charAvatar"></div>
+    </div>
+    <label>人设 / 性格 / 说话方式 / 你们的关系</label>
+    <textarea id="charPersona" style="min-height:150px"></textarea>
+    <label>开场白（清空对话后他会先说这句，可留空）</label>
+    <textarea id="charGreeting" style="min-height:60px"></textarea>
+
+    <h3>你</h3>
+    <div class="grid2">
+      <div><label>你的名字 / 他怎么称呼你</label><input id="userName"></div>
+      <div><label>你的头像（emoji 或图片链接）</label><input id="userAvatar"></div>
+    </div>
+    <label>你的人设（可留空）</label>
+    <textarea id="userPersona" style="min-height:60px"></textarea>
+
+    <h3>额外规则（可留空）</h3>
+    <textarea id="extraRules" style="min-height:60px" placeholder="例如：回复里多用日语语气词；不要每句都问问题……"></textarea>
+
+    <h3>存档</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="icon-btn" id="exportBtn">导出存档</button>
+      <button class="icon-btn" id="importBtn">导入存档</button>
+      <input type="file" id="importFile" accept=".json" hidden>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button class="icon-btn" id="cancelSettings">取消</button>
+    <button class="icon-btn primary" id="saveSettings">保存</button>
+  </div>
+</dialog>
+
+<script>
+const KEY = 'dream-sim-v1';
+const DEFAULTS = {
+  baseUrl: 'https://api.deepseek.com/v1', apiKey: '', model: 'deepseek-chat', temp: 0.9, memory: 40,
+  charName: '早川澄', charAvatar: '🌙',
+  charPersona:
+`22岁，男团成员，舞担。舞台上很有压迫感，私下却有点慢热、嘴硬心软。
+说话简短，偶尔吐槽，害羞时会转移话题。喜欢猫、便利店布丁和深夜散步。
+和对方是交往三个月的恋人，因为工作忙常常只能深夜聊天，很珍惜这段时间。`,
+  charGreeting: '（刚结束排练，靠在练习室墙边打字）\n还没睡？……正好，我也是。',
+  userName: '你', userAvatar: '🎀', userPersona: '', extraRules: '',
+  messages: []
+};
+let S = load();
+let busy = false, controller = null;
+
+function load(){ try{ return {...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY)||'{}')} }catch{ return {...DEFAULTS} } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)) }catch{} }
+const $ = id => document.getElementById(id);
+
+function avatarHTML(v){
+  if(/^(https?:|data:)/.test(v||'')) return `<img src="${esc(v)}" alt="">`;
+  return esc(v||'🙂');
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+function fmt(text){ // 把（动作描写）变成灰色斜体
+  return esc(text).replace(/(（[^（）]*）|\([^()]*\)|\*[^*\n]+\*)/g,'<span class="act">$1</span>');
+}
+
+function systemPrompt(){
+  return `你现在要扮演「${S.charName}」，和「${S.userName}」进行实时一对一聊天。
+
+【${S.charName}的人设】
+${S.charPersona}
+${S.userPersona ? `\n【关于${S.userName}】\n${S.userPersona}\n` : ''}
+【规则】
+- 始终以${S.charName}的身份和口吻说话，不要跳出角色，不要提到自己是AI或模型。
+- 像真实聊天一样回复：口语、自然、有情绪，长度随情境变化，通常1–4句。
+- 可以用中文括号（）简短描写动作、神态或环境，但以对话为主。
+- 想分成几条消息发送时，用一个空行隔开。
+- 记住之前聊过的内容，保持人设和关系的一致性；不要替${S.userName}说话或决定她的行动。
+${S.extraRules ? '- ' + S.extraRules.trim().split('\n').join('\n- ') : ''}`;
+}
+
+function render(){
+  $('hName').textContent = S.charName;
+  $('hAvatar').innerHTML = avatarHTML(S.charAvatar);
+  const chat = $('chat'); chat.innerHTML = '';
+  if(!S.apiKey) chat.insertAdjacentHTML('beforeend','<div class="sys">先点右上角「设置」填入 API Key 才能开始聊天</div>');
+  S.messages.forEach((m,i)=>addBubbles(m.role, m.content, false));
+  chat.scrollTop = chat.scrollHeight;
+}
+function addBubbles(role, content, scroll=true){
+  const chat = $('chat');
+  const parts = role==='assistant' ? content.split(/\n\s*\n/).filter(s=>s.trim()) : [content];
+  let last;
+  parts.forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'row ' + (role==='user'?'me':'them');
+    row.innerHTML = `<div class="avatar">${avatarHTML(role==='user'?S.userAvatar:S.charAvatar)}</div><div class="bubble">${fmt(p.trim())}</div>`;
+    chat.appendChild(row); last = row;
+  });
+  if(scroll) chat.scrollTop = chat.scrollHeight;
+  return last;
+}
+function sysNote(t){ $('chat').insertAdjacentHTML('beforeend',`<div class="sys">${esc(t)}</div>`); $('chat').scrollTop=1e9 }
+
+async function reply(){
+  if(!S.apiKey){ $('openSettings').click(); return; }
+  busy = true; $('send').disabled = true; $('hStatus').textContent = '对方正在输入…';
+  const chat = $('chat');
+  const row = document.createElement('div'); row.className='row them';
+  row.innerHTML = `<div class="avatar">${avatarHTML(S.charAvatar)}</div><div class="bubble typing"><span></span><span></span><span></span></div>`;
+  chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
+  const bubble = row.querySelector('.bubble');
+
+  const history = S.messages.slice(-S.memory);
+  const body = {
+    model: S.model, temperature: Number(S.temp), stream: true,
+    messages: [{role:'system', content: systemPrompt()}, ...history]
+  };
+  let text = '';
+  controller = new AbortController();
+  try{
+    const res = await fetch(S.baseUrl.replace(/\/+$/,'') + '/chat/completions', {
+      method:'POST', signal: controller.signal,
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.apiKey},
+      body: JSON.stringify(body)
+    });
+    if(!res.ok){ throw new Error(`${res.status} ${(await res.text()).slice(0,200)}`); }
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    while(true){
+      const {done, value} = await reader.read(); if(done) break;
+      buf += dec.decode(value, {stream:true});
+      const lines = buf.split('\n'); buf = lines.pop();
+      for(const line of lines){
+        const l = line.trim(); if(!l.startsWith('data:')) continue;
+        const data = l.slice(5).trim(); if(data==='[DONE]') continue;
+        try{
+          const d = JSON.parse(data).choices?.[0]?.delta?.content;
+          if(d){ text += d; bubble.classList.remove('typing'); bubble.innerHTML = fmt(text); chat.scrollTop = chat.scrollHeight; }
+        }catch{}
+      }
+    }
+    row.remove();
+    if(text.trim()){
+      S.messages.push({role:'assistant', content:text.trim()}); save();
+      addBubbles('assistant', text.trim());
+    }else sysNote('没有收到回复，可以点「重新回复」再试一次');
+  }catch(e){
+    row.remove();
+    if(e.name!=='AbortError') sysNote('出错了：' + e.message);
+  }finally{
+    busy = false; $('send').disabled = false; $('hStatus').textContent = '在线'; controller = null;
+  }
+}
+
+function send(){
+  const v = $('input').value.trim(); if(!v || busy) return;
+  $('input').value=''; autosize();
+  S.messages.push({role:'user', content:v}); save();
+  addBubbles('user', v);
+  reply();
+}
+function autosize(){ const t=$('input'); t.style.height='auto'; t.style.height=Math.min(t.scrollHeight,140)+'px' }
+
+$('send').onclick = send;
+$('input').addEventListener('input', autosize);
+$('input').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); }
+});
+$('regen').onclick = ()=>{
+  if(busy) return;
+  if(S.messages.at(-1)?.role==='assistant') S.messages.pop();
+  if(S.messages.at(-1)?.role!=='user'){ sysNote('先发一句话吧'); return; }
+  save(); render(); reply();
+};
+$('undo').onclick = ()=>{
+  if(busy) return;
+  while(S.messages.length && S.messages.at(-1).role==='assistant') S.messages.pop();
+  if(S.messages.length && S.messages.at(-1).role==='user'){ $('input').value = S.messages.pop().content; autosize(); }
+  save(); render();
+};
+$('clear').onclick = ()=>{
+  if(busy || !confirm('确定清空全部对话？')) return;
+  S.messages = S.charGreeting.trim() ? [{role:'assistant', content:S.charGreeting.trim()}] : [];
+  save(); render();
+};
+
+// 设置
+const FIELDS = ['baseUrl','apiKey','model','temp','memory','charName','charAvatar','charPersona','charGreeting','userName','userAvatar','userPersona','extraRules'];
+$('openSettings').onclick = ()=>{ FIELDS.forEach(f=>$(f).value = S[f]); $('preset').value=''; $('settings').showModal(); };
+$('cancelSettings').onclick = ()=> $('settings').close();
+$('preset').onchange = e=>{ if(!e.target.value) return; const [u,m]=e.target.value.split('|'); $('baseUrl').value=u; $('model').value=m; };
+$('saveSettings').onclick = ()=>{
+  FIELDS.forEach(f=> S[f] = $(f).value);
+  S.temp = Number(S.temp)||0.9; S.memory = Math.max(4, Number(S.memory)||40);
+  save(); $('settings').close(); render();
+};
+$('exportBtn').onclick = ()=>{
+  const {apiKey, ...rest} = S; // 导出时不带 Key
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(rest,null,2)],{type:'application/json'}));
+  a.download = `${S.charName}-存档-${new Date().toISOString().slice(0,10)}.json`; a.click();
+};
+$('importBtn').onclick = ()=> $('importFile').click();
+$('importFile').onchange = async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{ const d = JSON.parse(await f.text()); S = {...DEFAULTS, ...d, apiKey:S.apiKey}; save(); $('settings').close(); render(); }
+  catch{ alert('存档文件读取失败'); }
+  e.target.value='';
+};
+
+if(!S.messages.length && S.charGreeting.trim()){ S.messages=[{role:'assistant',content:S.charGreeting.trim()}]; save(); }
+render();
+</script>
+</body>
+</html>
